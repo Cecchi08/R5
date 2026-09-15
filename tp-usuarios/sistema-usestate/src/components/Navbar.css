@@ -1,0 +1,106 @@
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  height: 64px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+}
+
+.brand-icon { font-size: 1.5rem; }
+
+.navbar-links {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.nav-link {
+  padding: 0.4rem 0.9rem;
+  border-radius: 8px;
+  color: var(--text);
+  background: none;
+  border: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  font-family: inherit;
+}
+
+.nav-link:hover, .nav-link.active {
+  background: var(--glass-hover);
+  color: var(--accent);
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.theme-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+.theme-btn:hover { background: var(--glass-hover); }
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0.3rem 0.8rem;
+}
+
+.user-name { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+
+.role-badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.role-badge.admin { background: rgba(139,92,246,0.3); color: #a78bfa; }
+.role-badge.user  { background: rgba(14,165,233,0.3); color: #38bdf8; }
+
+.logout-btn {
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 8px;
+  color: #f87171;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.2s;
+}
+.logout-btn:hover { background: rgba(239,68,68,0.3); }
+
+@media (max-width: 600px) {
+  .navbar { padding: 0.5rem 1rem; height: auto; }
+  .navbar-links { display: none; }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "r6-acceso-social",
+  "private": true,
+  "type": "module",
+  "workspaces": ["backend", "frontend", "sistema-usestate"],
+  "scripts": {
+    "dev": "npm run dev --workspace frontend",
+    "backend": "npm start --workspace backend",
+    "build": "npm run build --workspace frontend && npm run build --workspace sistema-usestate",
+    "test": "npm test --workspace backend",
+    "db:auth": "npm run db:auth --workspace backend"
+  }
+}

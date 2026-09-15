@@ -1,0 +1,135 @@
+.product-detail-wrapper {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+.product-detail-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  overflow: hidden;
+  gap: 2rem;
+  padding: 2rem;
+}
+
+@media (min-width: 768px) {
+  .product-detail-card {
+    flex-direction: row;
+  }
+  .detail-image {
+    flex: 1;
+    min-width: 300px;
+  }
+  .detail-info {
+    flex: 1.5;
+  }
+}
+
+.detail-image {
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.05);
+}
+.detail-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  max-height: 400px;
+}
+
+.detail-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-meta {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.05em;
+}
+
+.detail-info h1 {
+  font-size: 2rem;
+  margin: 0 0 1rem;
+  color: var(--text);
+}
+
+.detail-desc {
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.detail-price {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 1rem;
+}
+
+.detail-stock {
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+.in-stock { color: #10b981; }
+.out-of-stock { color: #ef4444; }
+
+.quantity-selector {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.quantity-selector input {
+  width: 80px;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 1rem;
+  text-align: center;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.btn-lg {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  flex: 1;
+  min-width: 200px;
+}
+
+.btn-fav {
+  padding: 1rem 1.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  flex: 1;
+  min-width: 200px;
+}
+.btn-fav:hover { background: var(--glass-hover); }
+.btn-fav.active {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.error-state {
+  text-align: center;
+  padding: 4rem;
+  font-size: 1.2rem;
+  color: #ef4444;
+}

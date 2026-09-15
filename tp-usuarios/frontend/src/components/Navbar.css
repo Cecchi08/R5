@@ -1,0 +1,122 @@
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  height: 64px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: 0.03em;
+}
+
+.brand-icon { font-size: 1.5rem; }
+
+.navbar-links {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.nav-link {
+  padding: 0.4rem 0.9rem;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: background 0.2s, color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.nav-link:hover { background: var(--glass-hover); color: var(--accent); }
+
+.admin-link {
+  color: #a78bfa;
+  font-weight: 600;
+}
+
+.cart-badge {
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.theme-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+.theme-btn:hover { background: var(--glass-hover); }
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+}
+
+.user-name { font-size: 0.85rem; font-weight: 600; }
+.user-name:hover { text-decoration: underline !important; }
+.user-name { font-size: 1rem; font-weight: 700; }
+
+.role-badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.role-badge.admin { background: rgba(139,92,246,0.3); color: #a78bfa; }
+.role-badge.user  { background: rgba(14,165,233,0.3); color: #38bdf8; }
+
+.logout-btn {
+  background: transparent;
+  border: 1px solid rgba(239,68,68,0.45);
+  border-radius: 12px;
+  color: #f87171;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.2s;
+}
+.logout-btn:hover { background: rgba(239,68,68,0.3); }
+
+.navbar-actions > .logout-btn {
+  margin-left: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .navbar { padding: 0.5rem 1rem; height: auto; }
+  .navbar-links { display: none; }
+}
