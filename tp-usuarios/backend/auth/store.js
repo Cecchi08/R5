@@ -1,9 +1,6 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { hash, challengeFor, equal, randomSecret } from './crypto.js';
+export { hash, challengeFor, equal } from './crypto.js';
 import pool from '../db.js';
-
-export const hash = value => createHash('sha256').update(value).digest('hex');
-export const challengeFor = value => createHash('sha256').update(value).digest('base64url');
-export const equal = (a, b) => typeof a === 'string' && typeof b === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
 export async function consumeState(state, browser, provider) {
   const connection = await pool.getConnection();
@@ -55,4 +52,23 @@ export async function exchangeCode(code, verifier) {
     return rows[0];
   } catch (error) { await connection.rollback(); throw error; }
   finally { connection.release(); }
+}
+
+
+export async function createState({ state, browser, provider, verifier, challenge, returnUrl }) {
+  await pool.query('DELETE FROM oauth_states WHERE expires_at <= NOW()');
+  await pool.query('DELETE FROM oauth_codes WHERE expires_at <= NOW()');
+  await pool.query(
+    'INSERT INTO oauth_states (state_hash, browser_hash, provider, verifier, challenge, return_url, expires_at) VALUES (?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))',
+    [hash(state), hash(browser), provider, verifier, challenge, returnUrl],
+  );
+}
+
+export async function createLoginCode(userId, challenge) {
+  const code = randomSecret();
+  await pool.query(
+    'INSERT INTO oauth_codes (code_hash, user_id, challenge, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 2 MINUTE))',
+    [hash(code), userId, challenge],
+  );
+  return code;
 }
