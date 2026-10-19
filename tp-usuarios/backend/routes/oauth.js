@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authLimit } from '../middleware/authLimit.js';
-import { listProviders, startOAuth, completeOAuth, exchangeOAuthCode } from '../auth/oauth/controller.js';
+import { diagnostics, listProviders, startOAuth, completeOAuth, exchangeOAuthCode } from '../auth/oauth/controller.js';
+import { OAUTH_CALLBACK_ROUTE } from '../auth/oauth/paths.js';
 
 const router = Router();
 router.use((req, res, next) => {
@@ -8,8 +9,9 @@ router.use((req, res, next) => {
   next();
 });
 router.get('/providers', listProviders);
+router.get('/diagnostics', diagnostics);
 router.post('/exchange', authLimit, exchangeOAuthCode);
 router.get('/:provider/start', authLimit, startOAuth);
-router.get('/:provider/callback', completeOAuth);
+router.get(OAUTH_CALLBACK_ROUTE, completeOAuth);
 
 export default router;

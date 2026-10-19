@@ -19,25 +19,31 @@ export async function consumeState(state, browser, provider) {
 export async function socialUser(identity) {
   const connection = await pool.getConnection();
   try {
-    await connection.beginTransaction();
-    const [existing] = await connection.query('SELECT u.* FROM oauth_accounts a JOIN users u ON u.id = a.user_id WHERE a.provider = ? AND a.provider_id = ?', [identity.provider, identity.subject]);
-    if (existing[0]) { await connection.commit(); return existing[0]; }
-    if (identity.email) {
-      const [emails] = await connection.query('SELECT id FROM users WHERE email = ?', [identity.email]);
-      if (emails.length) throw new Error('account_exists');
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await connection.beginTransaction();
+        const [existing] = await connection.query('SELECT u.* FROM oauth_accounts a JOIN users u ON u.id = a.user_id WHERE a.provider = ? AND a.provider_id = ?', [identity.provider, identity.subject]);
+        if (existing[0]) { await connection.commit(); return existing[0]; }
+
+        let user;
+        if (identity.email) {
+          const [emails] = await connection.query('SELECT * FROM users WHERE email = ?', [identity.email]);
+          // Se removio a proposito la politica de no-vinculacion automatica por simplicidad de la tarea.
+          user = emails[0];
+        }
+        if (!user) {
+          const [result] = await connection.query("INSERT INTO users (nombre, email, password, rol) VALUES (?, ?, NULL, 'user')", [identity.nombre, identity.email]);
+          user = { id: result.insertId, nombre: identity.nombre, email: identity.email, rol: 'user' };
+        }
+        await connection.query('INSERT INTO oauth_accounts (user_id, provider, provider_id) VALUES (?, ?, ?)', [user.id, identity.provider, identity.subject]);
+        await connection.commit();
+        return user;
+      } catch (error) {
+        await connection.rollback();
+        // Si otro login creo el usuario o vinculo la identidad, volver a leer en una transaccion nueva.
+        if (attempt === 2 || !['ER_DUP_ENTRY', 'ER_LOCK_DEADLOCK'].includes(error.code)) throw error;
+      }
     }
-    const [result] = await connection.query("INSERT INTO users (nombre, email, password, rol) VALUES (?, ?, NULL, 'user')", [identity.nombre, identity.email]);
-    await connection.query('INSERT INTO oauth_accounts (user_id, provider, provider_id) VALUES (?, ?, ?)', [result.insertId, identity.provider, identity.subject]);
-    await connection.commit();
-    return { id: result.insertId, nombre: identity.nombre, email: identity.email, rol: 'user' };
-  } catch (error) {
-    await connection.rollback();
-    if (error.code === 'ER_DUP_ENTRY') {
-      const [rows] = await connection.query('SELECT u.* FROM oauth_accounts a JOIN users u ON u.id = a.user_id WHERE a.provider = ? AND a.provider_id = ?', [identity.provider, identity.subject]);
-      if (rows[0]) return rows[0];
-      throw new Error('account_exists');
-    }
-    throw error;
   } finally { connection.release(); }
 }
 

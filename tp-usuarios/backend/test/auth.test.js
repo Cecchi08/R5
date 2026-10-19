@@ -63,6 +63,7 @@ test('todos los proveedores intercambian el código y recuperan una identidad', 
   for (const [id, provider] of Object.entries(providers)) {
     process.env[`${provider.env}_CLIENT_ID`] = 'test-client';
     process.env[`${provider.env}_CLIENT_SECRET`] = 'test-secret';
+    process.env[`${provider.env}_REDIRECT_URI`] = `http://localhost:4000/api/auth/${id}/callback`;
     const requests = [];
     t.mock.method(globalThis, 'fetch', async (url, options) => {
       requests.push({ url, options });
@@ -111,7 +112,82 @@ test('registro e ingreso reales: normalización, hash, duplicados y rol seguro',
   assert.equal(duplicate.statusCode, 409);
   const invalid = await call(authRouter, 'post', '/register', { body: { nombre: {}, email: [], password: 123 } });
   assert.equal(invalid.statusCode, 400);
-  await assert.rejects(socialUser({ provider: 'google', subject: randomUUID(), nombre: 'Prueba', email }), /account_exists/);
+});
+
+test('Google vincula una cuenta con password por email y completa el login sin duplicarla', async t => {
+  const email = `r6-link-${randomUUID()}@example.com`;
+  const registered = await call(authRouter, 'post', '/register', {
+    body: { nombre: 'Cuenta Original', email, password: 'Segura123' },
+  });
+  assert.equal(registered.statusCode, 201);
+  const userId = registered.data.user.id;
+  createdUsers.add(userId);
+  const [[before]] = await pool.query('SELECT nombre, email, password, rol FROM users WHERE id = ?', [userId]);
+  const subject = randomUUID();
+  t.mock.method(globalThis, 'fetch', async (_url, options) => ({
+    ok: true,
+    json: async () => options.method === 'POST' ? { access_token: 'google-test-token' }
+      : { sub: subject, name: 'Nombre Google', email: email.toUpperCase(), email_verified: true },
+  }));
+
+  // Primer login: vincular por email. Segundo login: reutilizar la identidad vinculada.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const verifier = random();
+    const start = await call(oauthRouter, 'get', '/:provider/start', {
+      params: { provider: 'google' },
+      query: { return_to: 'http://localhost:5173/login', challenge: challengeFor(verifier) },
+    });
+    const state = new URL(start.url).searchParams.get('state');
+    createdStates.add(hash(state));
+    const callback = await call(oauthRouter, 'get', '/:provider/callback', {
+      params: { provider: 'google' },
+      query: { state, code: 'google-authorized-code' },
+      headers: { cookie: `r6_oauth_google=${start.cookies.r6_oauth_google.value}` },
+    });
+    const params = new URLSearchParams(new URL(callback.url).hash.slice(1));
+    assert.equal(params.has('oauth_error'), false);
+    assert.ok(params.get('oauth_code'));
+    const exchange = await call(oauthRouter, 'post', '/exchange', {
+      body: { code: params.get('oauth_code'), verifier },
+    });
+    assert.equal(exchange.statusCode, 200);
+    assert.equal(exchange.data.user.id, userId);
+    assert.equal(exchange.data.user.nombre, before.nombre);
+    assert.equal(jwt.verify(exchange.data.token, process.env.JWT_SECRET).id, userId);
+  }
+
+  const [accounts] = await pool.query('SELECT user_id FROM oauth_accounts WHERE provider = ? AND provider_id = ?', ['google', subject]);
+  assert.deepEqual(accounts, [{ user_id: userId }]);
+  const [users] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+  assert.deepEqual(users, [{ id: userId }]);
+  const [[after]] = await pool.query('SELECT nombre, email, password, rol FROM users WHERE id = ?', [userId]);
+  assert.deepEqual(after, before);
+  const login = await call(authRouter, 'post', '/login', { body: { email, password: 'Segura123' } });
+  assert.equal(login.statusCode, 200);
+  assert.equal(login.data.user.id, userId);
+
+  // Una identidad ya vinculada conserva su usuario aunque el proveedor cambie el email.
+  const other = await socialUser({ provider: 'discord', subject: randomUUID(), nombre: 'Otra Cuenta', email: `r6-other-${randomUUID()}@example.com` });
+  createdUsers.add(other.id);
+  assert.equal((await socialUser({ provider: 'google', subject, nombre: 'Cambio', email: other.email })).id, userId);
+});
+
+test('logins simultaneos con el mismo email crean un usuario y una vinculacion por identidad', async () => {
+  const email = `r6-parallel-${randomUUID()}@example.com`;
+  const google = { provider: 'google', subject: randomUUID(), nombre: 'Prueba Paralela', email };
+  const discord = { ...google, provider: 'discord', subject: randomUUID() };
+  const results = await Promise.allSettled([socialUser(google), socialUser(google), socialUser(discord)]);
+  for (const result of results) if (result.status === 'fulfilled') createdUsers.add(result.value.id);
+  assert.ok(results.every(result => result.status === 'fulfilled'));
+  const userId = results[0].value.id;
+  for (const result of results) assert.equal(result.value.id, userId);
+  const [users] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+  assert.deepEqual(users, [{ id: userId }]);
+  const [accounts] = await pool.query('SELECT provider, provider_id FROM oauth_accounts WHERE user_id = ? ORDER BY provider', [userId]);
+  assert.deepEqual(accounts, [
+    { provider: 'discord', provider_id: discord.subject },
+    { provider: 'google', provider_id: google.subject },
+  ]);
 });
 
 test('identidades sociales persistentes, sin correo y sin duplicación', async () => {
@@ -159,7 +235,11 @@ test('cancelación, vencimiento y proveedores no configurados tienen salida cont
   const state = new URL(start.url).searchParams.get('state');
   createdStates.add(hash(state));
   const cancelled = await call(oauthRouter, 'get', '/:provider/callback', { params: input.params, query: { state, error: 'access_denied' }, headers: { cookie: `r6_oauth_discord=${start.cookies.r6_oauth_discord.value}` } });
-  assert.equal(cancelled.url, 'http://localhost:5173/register#oauth_error=cancelled');
+  const cancelledUrl = new URL(cancelled.url);
+  assert.equal(`${cancelledUrl.origin}${cancelledUrl.pathname}`, 'http://localhost:5173/register');
+  const cancelledParams = new URLSearchParams(cancelledUrl.hash.slice(1));
+  assert.equal(cancelledParams.get('oauth_error'), 'cancelled');
+  assert.equal(JSON.parse(cancelledParams.get('oauth_diagnostic')).code, 'AUTHORIZATION_DENIED');
   const expired = await call(oauthRouter, 'get', '/:provider/start', input);
   const expiredState = new URL(expired.url).searchParams.get('state');
   createdStates.add(hash(expiredState));
@@ -167,7 +247,9 @@ test('cancelación, vencimiento y proveedores no configurados tienen salida cont
   await assert.rejects(consumeState(expiredState, expired.cookies.r6_oauth_discord.value, 'discord'), /invalid_state/);
   delete process.env.DISCORD_CLIENT_SECRET;
   const unavailable = await call(oauthRouter, 'get', '/:provider/start', input);
-  assert.equal(unavailable.url, 'http://localhost:5173/register#oauth_error=unavailable');
+  const unavailableParams = new URLSearchParams(new URL(unavailable.url).hash.slice(1));
+  assert.equal(unavailableParams.get('oauth_error'), 'unavailable');
+  assert.equal(JSON.parse(unavailableParams.get('oauth_diagnostic')).code, 'MISSING_ENV_VAR');
   const malicious = await call(oauthRouter, 'get', '/:provider/start', { ...input, query: { ...input.query, return_to: 'https://evil.example/login' } });
   assert.equal(malicious.statusCode, 400);
 });

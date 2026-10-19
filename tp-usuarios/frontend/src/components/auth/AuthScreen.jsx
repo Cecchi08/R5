@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import ProviderIcon from './ProviderIcon';
 import './AuthScreen.css';
+import { showOAuthError } from './oauthError';
 
 const providerList = [
   { id: 'google', name: 'Google' }, { id: 'facebook', name: 'Facebook / Meta' },
   { id: 'github', name: 'GitHub' }, { id: 'x', name: 'X' },
-  { id: 'discord', name: 'Discord' }, { id: 'twitch', name: 'Twitch' },
+  { id: 'discord', name: 'Discord' },
 ];
 const oauthErrors = {
   cancelled: 'Cancelaste el acceso. Podés elegir otra cuenta o volver a intentarlo.',
   invalid_state: 'La solicitud expiró o pertenece a otra sesión. Volvé a intentarlo desde este navegador.',
-  account_exists: 'Este correo ya tiene una cuenta. Iniciá sesión con el método que usaste al registrarte.',
   provider_failed: 'No pudimos completar el acceso con ese proveedor. Volvé a intentarlo.',
   unavailable: 'Este proveedor todavía no está disponible. Podés ingresar con tu correo.',
 };
@@ -32,7 +32,7 @@ function ThemeIcon({ dark }) {
   return <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">{dark ? <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></> : <path d="M20 14A8.5 8.5 0 0 1 10 4a8.5 8.5 0 1 0 10 10Z" />}</svg>;
 }
 
-export default function AuthScreen({ mode, api, onAuthenticated, onSwitch, dark, toggle }) {
+export default function AuthScreen({ mode, api, onAuthenticated, onSwitch, dark, toggle, returnTo = '/' }) {
   const register = mode === 'register';
   const [form, setForm] = useState({ nombre: '', email: '', password: '', confirm: '' });
   const [errors, setErrors] = useState({});
@@ -69,19 +69,29 @@ export default function AuthScreen({ mode, api, onAuthenticated, onSwitch, dark,
     callbackStarted.current = true;
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
     if (reason) {
-      sessionStorage.removeItem('r6_oauth_verifier');
-      setError(oauthErrors[reason] || oauthErrors.provider_failed);
+      // Cancelar en el proveedor limpia PKCE y permite probar otro método de inmediato.
+      if (reason === 'cancelled') {
+        try {
+          sessionStorage.removeItem('r6_oauth_verifier');
+          sessionStorage.removeItem('r6_oauth_provider');
+        } catch { /* El usuario igualmente puede iniciar otro proveedor. */ }
+        setError(oauthErrors.cancelled);
+        setBusy(false);
+        return;
+      }
+      showOAuthError(params.get('oauth_diagnostic') || { message: oauthErrors[reason] || oauthErrors.provider_failed });
       return;
     }
     const verifier = sessionStorage.getItem('r6_oauth_verifier');
-    if (!verifier) { setError(oauthErrors.invalid_state); return; }
+    if (!verifier) { showOAuthError({ stage: 'session', code: 'INVALID_VERIFIER', message: oauthErrors.invalid_state }); return; }
     setBusy(true);
-    api.post('/auth/exchange', { code, verifier }).then(({ data }) => {
+    const provider = sessionStorage.getItem('r6_oauth_provider');
+    api.post('/auth/exchange', { code, verifier, provider }).then(({ data }) => {
       sessionStorage.removeItem('r6_oauth_verifier');
+      sessionStorage.removeItem('r6_oauth_provider');
       onAuthenticated(data.user, data.token);
     }).catch(error => {
-      sessionStorage.removeItem('r6_oauth_verifier');
-      setError(errorMessage(error));
+      showOAuthError(error.response?.data?.oauthError || { stage: 'session', provider, message: errorMessage(error) });
     }).finally(() => setBusy(false));
   }, [api, onAuthenticated]);
 
@@ -118,12 +128,19 @@ export default function AuthScreen({ mode, api, onAuthenticated, onSwitch, dark,
       const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)));
       const challenge = base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
       sessionStorage.setItem('r6_oauth_verifier', verifier);
+      sessionStorage.setItem('r6_oauth_provider', id);
+      // OAuth vuelve con una navegacion completa; conservar la ruta protegida hasta terminar el login.
+      sessionStorage.setItem('r6_oauth_return_to', returnTo);
       const url = new URL(`${api.defaults.baseURL.replace(/\/$/, '')}/auth/${id}/start`, window.location.origin);
       url.searchParams.set('return_to', `${window.location.origin}${window.location.pathname}`);
       url.searchParams.set('challenge', challenge);
       window.location.assign(url.toString());
     } catch {
-      setError('No pudimos abrir el acceso social. Verificá que el navegador permita guardar la sesión y usá HTTPS o localhost.');
+      try {
+        sessionStorage.removeItem('r6_oauth_verifier');
+        sessionStorage.removeItem('r6_oauth_provider');
+      } catch { /* No bloquear el acceso manual por email. */ }
+      showOAuthError({ stage: 'authorization', provider: id, code: 'INVALID_REQUEST', message: 'No pudimos abrir el acceso social.', hint: 'Verificá que el navegador permita guardar la sesión y usá HTTPS o localhost.' });
       setBusy(false);
     }
   };
@@ -151,7 +168,7 @@ export default function AuthScreen({ mode, api, onAuthenticated, onSwitch, dark,
           <div className="access-orbit" aria-hidden="true">
             <div className="orbit-line orbit-outer" /><div className="orbit-line orbit-inner" />
             <div className="orbit-core"><svg viewBox="0 0 64 64" fill="none"><circle cx="32" cy="23" r="10" stroke="currentColor" strokeWidth="2.5" /><path d="M14 51c0-10 8-17 18-17s18 7 18 17" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg><span className="orbit-check">✓</span></div>
-            {['google', 'github', 'discord', 'facebook', 'x', 'twitch'].map((id, index) => <span key={id} className={`orbit-provider orbit-${index}`}><ProviderIcon id={id} /></span>)}
+            {['google', 'github', 'discord', 'facebook', 'x'].map((id, index) => <span key={id} className={`orbit-provider orbit-${index}`}><ProviderIcon id={id} /></span>)}
             <span className="orbit-caption">Siempre vos. Desde cualquier cuenta.</span>
           </div>
         </div>
@@ -170,7 +187,7 @@ export default function AuthScreen({ mode, api, onAuthenticated, onSwitch, dark,
             return <button key={provider.id} className="access-social" type="button" disabled={busy || !enabled} onClick={() => social(provider.id)} aria-label={`${register ? 'Registrarse' : 'Ingresar'} con ${provider.name}${providers && !enabled ? ', no disponible' : ''}`}><ProviderIcon id={provider.id} /><span>{provider.name}{providers && !enabled && <small>No disponible</small>}</span></button>;
           })}
         </div>
-        {providerError ? <div className="access-provider-note" role="status">{providerError} <button type="button" onClick={() => setRetry(value => value + 1)}>Reintentar</button></div> : providers && !providers.some(item => item.enabled) ? <p className="access-provider-note">El acceso social todavía no está disponible. Podés continuar con tu correo.</p> : !providers ? <p className="access-provider-note" role="status">Cargando accesos sociales…</p> : null}
+        {providerError ? <div className="access-provider-note" role="status">{providerError} <button type="button" onClick={() => setRetry(value => value + 1)}>Reintentar</button></div> : providers && !providerList.some(provider => providers.some(item => item.id === provider.id && item.enabled)) ? <p className="access-provider-note">El acceso social todavía no está disponible. Podés continuar con tu correo.</p> : !providers ? <p className="access-provider-note" role="status">Cargando accesos sociales…</p> : null}
         <div className="access-separator"><span />o continuá con tu correo<span /></div>
         <form onSubmit={submit} noValidate>
           {register && field('nombre', 'Nombre completo', 'text', 'Tu nombre y apellido', 'name', 50)}

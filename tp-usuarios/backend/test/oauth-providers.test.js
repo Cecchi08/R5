@@ -9,9 +9,10 @@ import { requestJson } from '../auth/oauth/http.js';
 function configure(t) {
   const previous = {};
   const values = { BACKEND_URL: 'http://localhost:4000', FACEBOOK_API_VERSION: 'v23.0' };
-  for (const provider of Object.values(providers)) {
+  for (const [id, provider] of Object.entries(providers)) {
     values[`${provider.env}_CLIENT_ID`] = 'test-client';
     values[`${provider.env}_CLIENT_SECRET`] = 'test-secret';
+    values[`${provider.env}_REDIRECT_URI`] = `http://localhost:4000/api/auth/${id}/callback`;
   }
   for (const [key, value] of Object.entries(values)) {
     previous[key] = process.env[key];
@@ -40,6 +41,43 @@ test('los seis módulos generan Authorization Code con state, callback y PKCE cu
   }
   assert.equal(new URL(authorizationUrl('meta', state, verifier)).searchParams.get('redirect_uri'), 'http://localhost:4000/api/auth/facebook/callback');
   assert.equal(new URL(authorizationUrl('twitter', state, verifier)).hostname, 'x.com');
+});
+
+test('los seis proveedores envian la URL explicita intacta en autorizacion e intercambio', async t => {
+  configure(t);
+  process.env.BACKEND_URL = 'http://wrong.example:9999///';
+  for (const [id, provider] of Object.entries(providers)) {
+    const redirectUri = `https://login.example.com:8443/api/auth/${id}/callback`;
+    process.env[`${provider.env}_REDIRECT_URI`] = redirectUri;
+    const verifier = randomSecret();
+    const url = new URL(authorizationUrl(id, randomSecret(), verifier));
+    assert.equal(url.searchParams.get('redirect_uri'), redirectUri);
+    const fetch = t.mock.method(globalThis, 'fetch', async (_url, options) => {
+      assert.equal(new URLSearchParams(options.body.toString()).get('redirect_uri'), redirectUri);
+      return { ok: true, json: async () => ({ access_token: 'test-token' }) };
+    });
+    await exchangeAuthorizationCode(id, 'provider-code', verifier);
+    assert.equal(fetch.mock.callCount(), 1);
+    t.mock.restoreAll();
+  }
+});
+
+test('callbacks ausentes o mal configurados fallan antes de contactar al proveedor', async t => {
+  configure(t);
+  const fetch = t.mock.method(globalThis, 'fetch', async () => { throw new Error('Unexpected network'); });
+  for (const [id, provider] of Object.entries(providers)) {
+    const key = `${provider.env}_REDIRECT_URI`;
+    const good = `http://localhost:4000/api/auth/${id}/callback`;
+    for (const value of [undefined, '', ` ${good}`, `${good} `, `${good}/`, `${good}?`, `${good}#`,
+      good.replace('/api/auth/', '/auth/'), good.replace('/api/auth/', '//api/auth/'),
+      good.replace('localhost', 'public.example'), good.replace('localhost', 'user@localhost'),
+      good.replace('http:', 'ftp:'), `/api/auth/${id}/callback`]) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+      assert.throws(() => authorizationUrl(id, randomSecret(), randomSecret()), new RegExp(key));
+      await assert.rejects(exchangeAuthorizationCode(id, 'code', randomSecret()), new RegExp(key));
+    }
+  }
+  assert.equal(fetch.mock.callCount(), 0);
 });
 
 test('PKCE usa el vector S256 del RFC 7636 y X rechaza verificadores inválidos antes de acceder a la red', async t => {

@@ -8,6 +8,8 @@ export default {
   token: 'https://github.com/login/oauth/access_token',
   scope: 'read:user user:email',
   pkce: true,
+  // Pedir el selector incluso si el navegador ya tiene una sesion abierta en GitHub.
+  authorizationParams: { prompt: 'select_account' },
   async getProfile(accessToken) {
     const options = { headers: { Authorization: `Bearer ${accessToken}` } };
     const user = await requestJson('https://api.github.com/user', options);

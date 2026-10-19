@@ -1,0 +1,10 @@
+.oauth-error-page { min-height: 75vh; display: grid; place-items: center; padding: 2rem 1rem; }
+.oauth-error-card { width: min(100%, 640px); padding: clamp(1.5rem, 5vw, 3rem); border: 1px solid #8885; border-radius: 20px; }
+.oauth-error-eyebrow { font-size: .85rem; text-transform: uppercase; letter-spacing: .08em; opacity: .65; }
+.oauth-error-card h1 { margin: 1rem 0; font-size: clamp(1.6rem, 4vw, 2.2rem); line-height: 1.2; }
+.oauth-error-card p { line-height: 1.6; overflow-wrap: anywhere; }
+.oauth-error-card details { margin: 1.5rem 0; }
+.oauth-error-card summary { cursor: pointer; }
+.oauth-error-card pre { padding: 1rem; background: #8881; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 24rem; overflow: auto; font-size: .8rem; }
+.oauth-error-retry { display: inline-block; margin-top: 1rem; padding: .8rem 1.2rem; border-radius: 8px; background: #2459db; color: white; text-decoration: none; }
+.oauth-error-retry:focus-visible { outline: 3px solid #6b8fe8; outline-offset: 3px; }

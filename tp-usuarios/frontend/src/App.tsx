@@ -9,6 +9,7 @@ import ScrollTop from './components/ScrollTop';
 import PrivateRoute from './components/PrivateRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import OAuthErrorPage from './components/auth/OAuthErrorPage';
 import Profile from './pages/Profile';
 import Users from './pages/Users';
 
@@ -30,11 +31,12 @@ export default function App() {
             <ScrollTop />
             <Routes>
               {/* Ecommerce Rutas Públicas/Protegidas */}
-              <Route path="/" element={<Home />} />
-              <Route path="/products/:id" element={<ProductDetail />} />
+              <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
+              <Route path="/products/:id" element={<PrivateRoute><ProductDetail /></PrivateRoute>} />
               
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/auth/error" element={<OAuthErrorPage />} />
               
               <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
               <Route path="/favorites" element={<PrivateRoute><Favorites /></PrivateRoute>} />

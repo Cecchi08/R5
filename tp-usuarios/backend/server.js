@@ -10,6 +10,7 @@ import favoriteRoutes from './routes/favorites.js';
 import cartRoutes from './routes/carts.js';
 import orderRoutes from './routes/orders.js';
 import oauthRoutes from './routes/oauth.js';
+import { OAUTH_BASE_PATH } from './auth/oauth/paths.js';
 import { frontendOrigins } from './auth/config.js';
 import { ensureAuthSchema } from './auth/schema.js';
 
@@ -21,7 +22,7 @@ app.use(cors({ origin: frontendOrigins(), credentials: true }));
 app.use(express.json({ limit: '32kb' }));
 
 app.use('/api/auth', authRoutes);
-app.use('/api/auth', oauthRoutes);
+app.use(OAUTH_BASE_PATH, oauthRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/favorites', favoriteRoutes);

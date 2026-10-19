@@ -4,6 +4,7 @@ import { NavProvider, useNav } from './context/NavContext';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import OAuthErrorPage from '../../frontend/src/components/auth/OAuthErrorPage';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Users from './pages/Users';
@@ -17,6 +18,7 @@ function PageRouter() {
   const isAuth = !!user;
   const isAdmin = user?.rol === 'admin';
 
+  if (window.location.pathname === '/auth/error') return <OAuthErrorPage />;
   if (window.location.hash.includes('oauth_')) return <Login />;
 
   if (!isAuth && page !== 'register') return <Login />;
